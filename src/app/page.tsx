@@ -6,7 +6,7 @@ async function allUserData() {
   let userList: UserDetail[] = [];
   try {
     const res = await getApi("/users");
-    userList = [...res];
+    if (res?.length > 0) userList = [...res];
   } catch (error) {
     console.log(error);
   }
@@ -16,10 +16,18 @@ async function allUserData() {
 }
 export default async function Home() {
   const { userList } = await allUserData();
-  const limit = 8
+  const limit = 8;
   return (
     <div className="m-8 w-fit flex flex-wrap gap-8">
-      <LandingCompnent userList={userList} limit={limit}/>
+      {userList?.length > 0 ? (
+        <LandingCompnent userList={userList} limit={limit} />
+      ) : (
+        <div className="w-screen min-h-screen">
+          <h1 className="w-fit mt-10 mx-auto font-bold text-3xl">
+            Sorry we are unable to fetch data. Please try again later
+          </h1>
+        </div>
+      )}
     </div>
   );
 }
