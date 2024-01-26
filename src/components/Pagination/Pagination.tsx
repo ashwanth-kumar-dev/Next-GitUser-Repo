@@ -70,7 +70,7 @@ export default function Pagination({
 
   return (
     <div className="w-full p-5">
-      <div className="float-right relative w-fit bottom-12 ">
+      <div className="float-right relative w-fit bottom-8 ">
         <Button
           variant="outline-primary font-bold "
           label="<"
