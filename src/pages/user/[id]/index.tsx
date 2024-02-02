@@ -6,14 +6,27 @@ import Link from "next/link";
 import "@/app/globals.css";
 import Header from "@/components/header/Header";
 import RepoList from "@/components/repoListCard/RepoList";
+import { getNextLink } from "@/components/commonUtils/helperFunctions";
 
 type UserDetailProps = {
   userDetail: UserDetail;
   repoDetails: RepoDetail[];
-  pageNo?: number
+  pageNo?: number;
+  lastPage?: number;
 };
-
-export default function UserDetails({ userDetail, repoDetails, pageNo }: UserDetailProps) {
+/**
+ *
+ * @description The User Detail page has public repositories and it is PAGINATED. This is because
+ *              this API - https://api.github.com/users/{userName}/repos gives
+ *              Link from response headers gives rel='last' and we set per_page
+ *
+ */
+export default function UserDetails({
+  userDetail,
+  repoDetails,
+  pageNo,
+  lastPage = 1,
+}: UserDetailProps) {
   return (
     <>
       <Header />
@@ -42,7 +55,12 @@ export default function UserDetails({ userDetail, repoDetails, pageNo }: UserDet
             >
               <path d="m7.775 3.275 1.25-1.25a3.5 3.5 0 1 1 4.95 4.95l-2.5 2.5a3.5 3.5 0 0 1-4.95 0 .751.751 0 0 1 .018-1.042.751.751 0 0 1 1.042-.018 1.998 1.998 0 0 0 2.83 0l2.5-2.5a2.002 2.002 0 0 0-2.83-2.83l-1.25 1.25a.751.751 0 0 1-1.042-.018.751.751 0 0 1-.018-1.042Zm-4.69 9.64a1.998 1.998 0 0 0 2.83 0l1.25-1.25a.751.751 0 0 1 1.042.018.751.751 0 0 1 .018 1.042l-1.25 1.25a3.5 3.5 0 1 1-4.95-4.95l2.5-2.5a3.5 3.5 0 0 1 4.95 0 .751.751 0 0 1-.018 1.042.751.751 0 0 1-1.042.018 1.998 1.998 0 0 0-2.83 0l-2.5 2.5a1.998 1.998 0 0 0 0 2.83Z"></path>
             </svg>
-            <Link href={userDetail?.blog || ""} className="underline text-[blue]">{userDetail?.blog || ""}</Link>
+            <Link
+              href={userDetail?.blog || ""}
+              className="underline text-[blue]"
+            >
+              {userDetail?.blog || ""}
+            </Link>
           </div>
           <Button
             label={<p className="mx-auto w-60">Follow</p>}
@@ -76,21 +94,23 @@ export default function UserDetails({ userDetail, repoDetails, pageNo }: UserDet
           {userDetail?.company && (
             <>
               <div className="pt-4 pb-1 mx-auto w-fit">
-                <p className="font-bold text-xl text-start">
-                  Organizations
-                </p>
+                <p className="font-bold text-xl text-start">Organizations</p>
               </div>
               <p className="w-2/3 mx-auto">{userDetail?.company}</p>
             </>
           )}
         </section>
-        <RepoList  repoDetails = {repoDetails} pageNo = {pageNo || 1}/>
+        <RepoList
+          repoDetails={repoDetails}
+          pageNo={pageNo || 1}
+          lastPage={lastPage}
+        />
       </div>
     </>
   );
 }
 
-export async function getServerSideProps(context: { params: any, query: any }) {
+export async function getServerSideProps(context: { params: any; query: any }) {
   // Fetch data from an external API or database
   let userDetail: UserDetail = {
     id: "",
@@ -100,19 +120,32 @@ export async function getServerSideProps(context: { params: any, query: any }) {
     location: "",
     company: "",
   };
-  let repoDetails : RepoDetail[] = [{
-    name: "",
-    html_url: "",
-  }]
+  let repoDetails: RepoDetail[] = [
+    {
+      name: "",
+      html_url: "",
+    },
+  ];
+
+  let last: string = "";
   const { params, query } = context;
   const { id } = params;
-  const { page = '1' } = query
+  const { page = "1" } = query;
+  const per_page = 5;
   try {
     const res = await getApi(`/users/${id}`);
-    userDetail = { ...res }; 
-    const repoRes = await getApi(`/users/${id}/repos`)
-    if( repoRes?.length > 0)
-    repoDetails =[...repoRes].filter((e) => e?.visibility === 'public')
+    userDetail = { ...res };
+    const { data, headers } = await getApi(
+      `/users/${id}/repos?per_page=${per_page}&page=${page}`,
+      true
+    );
+    if (data?.length > 0)
+      repoDetails = [...data].filter((e) => e?.visibility === "public");
+    if (headers) {
+      const newlink = getNextLink(headers, "last");
+      const searchParam = new URLSearchParams(newlink.split("?")?.[1]);
+      last = searchParam.get("page") || "";
+    }
   } catch (error) {
     console.log(error);
   }
@@ -122,7 +155,8 @@ export async function getServerSideProps(context: { params: any, query: any }) {
     props: {
       userDetail,
       repoDetails,
-      pageNo: parseInt(page)
+      pageNo: parseInt(page),
+      lastPage: parseInt(last),
     },
   };
 }

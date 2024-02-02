@@ -1,64 +1,80 @@
 "use client";
 
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
-import { useReducer } from "react";
 import Button from "../button/Button";
 
 type PaginationProps = {
-  totalCount: number;
+  totalCount?: number;
   limit: number;
+  pageNo: number;
   pageLimitDisplay?: number;
-  startIndex: number;
+  totalPageCount?: number;
 };
 
 export default function Pagination({
-  totalCount,
+  totalCount = 1,
   limit,
-  pageLimitDisplay = 3,
-  startIndex,
+  pageNo,
+  pageLimitDisplay = 5,
+  totalPageCount,
 }: PaginationProps) {
-  const totalPageCount = Math.ceil(totalCount / limit);
+  const totalPage = totalPageCount || Math.ceil(totalCount / limit) || 1;
   const router = useRouter();
-  const pathName = usePathname()
-  const searchParam = useSearchParams();
-  const page = searchParam?.get("page") || "1";
-  const currPageNo = parseInt(page as string);
+  const pathName = usePathname();
+  const currPageNo = pageNo;
+  const startIndex = currPageNo - (pageLimitDisplay - 1) / 2;
+  const finalIndex = currPageNo + (pageLimitDisplay - 1) / 2;
 
-  type actions = {
-    type: string;
-  };
 
-  type indexState = {
-    startIndex: number;
-  };
-
-  const pageReducerFunc = (state: indexState, action: actions) => {
-    switch (action.type) {
+  const pageFunc = (type: string = "") => {
+    switch (type) {
       case "Next":
         router.push(`${pathName}?page=${currPageNo + 1}`);
-        return { ...state, startIndex: state.startIndex + 1 };
+        break;
 
       case "Prev":
         router.push(`${pathName}?page=${currPageNo - 1}`);
-        return { ...state, startIndex: state.startIndex - 1 };
+        break;
 
       default:
-        return { ...state };
+        break;
     }
   };
 
-  const [state, dispatch] = useReducer(pageReducerFunc, { startIndex });
-
   const renderPagination = () => {
     const data = [];
+    let minLimit: number = 1;
+    let maxLimit: number = pageLimitDisplay;
+
+    if (
+      startIndex <= 1 &&
+      finalIndex >= totalPage
+    ) {
+      minLimit = 1;
+      maxLimit = pageLimitDisplay;
+    } else if (
+      !(
+        startIndex <= 1 ||
+        totalPage <= pageLimitDisplay
+      ) &&
+      finalIndex < totalPage
+    ) {
+      minLimit = startIndex;
+      maxLimit = finalIndex;
+    } else if (finalIndex >= totalPage) {
+      minLimit = totalPage - (pageLimitDisplay - 1);
+      maxLimit = totalPage;
+    }
     for (
-      let index = state.startIndex;
-      index <= totalPageCount && index <= state.startIndex + (pageLimitDisplay - 1);
+      let index = minLimit;
+      index <= totalPage && index <= maxLimit;
       index++
     ) {
       data.push(
         <Button
-          variant={`${currPageNo === index ? "primary" : "outline-primary"} font-bold`}
+          variant={`${
+            currPageNo === index ? "primary" : "outline-primary"
+          } font-bold`}
           label={index?.toString()}
           onClick={() => router.push(`${pathName}?page=${index}`)}
           key={index}
@@ -74,15 +90,15 @@ export default function Pagination({
         <Button
           variant="outline-primary font-bold "
           label="<"
-          onClick={() => dispatch({ type: "Prev" })}
-          disabled={state.startIndex <= 1}
+          onClick={() => pageFunc("Prev")}
+          disabled={startIndex <= 1}
         />
         {renderPagination()}
         <Button
           variant="outline-primary font-bold"
           label=">"
-          onClick={() => dispatch({ type: "Next" })}
-          disabled={state.startIndex + (pageLimitDisplay - 1) >= totalPageCount}
+          onClick={() => pageFunc("Next")}
+          disabled={finalIndex >= totalPage}
         />
       </div>
     </div>
